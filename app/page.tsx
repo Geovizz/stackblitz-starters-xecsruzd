@@ -2,17 +2,28 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-type Game = { id: string; title: string; url: string };
+type Game = { id: string; title: string; desc: string; url: string };
 
 const GAMES: Game[] = [
-  { id: 'flappy', title: 'Flappy Block', url: '/games/flappy/index.html' },
-  { id: 'runner', title: 'Tiny Runner', url: '/games/runner/index.html' },
+  {
+    id: 'flappy',
+    title: 'Flappy Block',
+    desc: 'Arcade / Tap to fly',
+    url: '/games/flappy/index.html',
+  },
+  {
+    id: 'runner',
+    title: 'Tiny Runner',
+    desc: 'Endless runner challenge',
+    url: '/games/runner/index.html',
+  },
 ];
 
 export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const [likes, setLikes] = useState<Record<string, number>>({});
+  const [comments, setComments] = useState<Record<string, number>>({});
 
   // стартуем с ?game=id
   useEffect(() => {
@@ -72,43 +83,59 @@ export default function Home() {
           <section key={g.id} className="relative h-screen snap-start">
             {isNear ? (
               <>
+                {/* Верхняя панель с иконкой, названием и описанием */}
+                <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-3 bg-black/60 p-3">
+                  <div className="h-10 w-10 rounded bg-gray-700 flex items-center justify-center text-xs">
+                    ICON
+                  </div>
+                  <div>
+                    <h1 className="text-sm font-semibold">{g.title}</h1>
+                    <p className="text-xs text-gray-300">{g.desc}</p>
+                  </div>
+                </div>
+
+                {/* Игра */}
                 <iframe
                   src={g.url}
                   title={g.title}
                   className="w-full h-full block"
                   allow="autoplay; fullscreen"
                 />
-                {/* Оверлей */}
-                <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent p-3 sm:p-4">
-                  <div className="pointer-events-auto mx-auto flex max-w-screen-sm items-center justify-between">
-                    <h1 className="text-base font-semibold">{g.title}</h1>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => toggleLike(g.id)}
-                        className={`rounded-full px-3 py-1 text-sm bg-white/10 hover:bg-white/20 border ${
-                          likes[g.id] ? 'border-red-400' : 'border-white/30'
-                        }`}
-                      >
-                        {likes[g.id] ? '♥ Liked' : '♡ Like'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          const url = `${location.origin}${location.pathname}?game=${g.id}`;
-                          if ((navigator as any).share) {
-                            (navigator as any)
-                              .share({ title: g.title, url })
-                              .catch(() => {});
-                          } else {
-                            navigator.clipboard?.writeText(url);
-                            alert('Link copied!');
-                          }
-                        }}
-                        className="rounded-full px-3 py-1 text-sm bg-white/10 hover:bg-white/20 border border-white/30"
-                      >
-                        Share
-                      </button>
-                    </div>
-                  </div>
+
+                {/* Нижняя панель с кнопками */}
+                <div className="absolute bottom-0 left-0 right-0 z-10 flex justify-around bg-black/80 py-2 text-center text-xs">
+                  <button
+                    onClick={() => toggleLike(g.id)}
+                    className="flex flex-col items-center"
+                  >
+                    <span className="text-lg">{likes[g.id] ? '❤️' : '🤍'}</span>
+                    <span>{likes[g.id] || 0}</span>
+                  </button>
+                  <button className="flex flex-col items-center">
+                    <span className="text-lg">💬</span>
+                    <span>{comments[g.id] || 0}</span>
+                  </button>
+                  <button className="flex flex-col items-center">
+                    <span className="text-lg">⭐</span>
+                    <span>0</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const url = `${location.origin}${location.pathname}?game=${g.id}`;
+                      if ((navigator as any).share) {
+                        (navigator as any)
+                          .share({ title: g.title, url })
+                          .catch(() => {});
+                      } else {
+                        navigator.clipboard?.writeText(url);
+                        alert('Link copied!');
+                      }
+                    }}
+                    className="flex flex-col items-center"
+                  >
+                    <span className="text-lg">⤴</span>
+                    <span>Share</span>
+                  </button>
                 </div>
               </>
             ) : (
