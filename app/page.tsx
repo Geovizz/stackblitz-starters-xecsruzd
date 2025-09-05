@@ -19,37 +19,43 @@ const GAMES: Game[] = [
   },
 ];
 
-// делаем ровно 10 слайдов, игры повторяются циклически
+// делаем ровно 10 слайдов
 const SLIDES = Array.from({ length: 10 }, (_, i) => GAMES[i % GAMES.length]);
 
 export default function Home() {
   const [index, setIndex] = useState(0);
   const touchStartY = useRef<number | null>(null);
+  const touchDeltaY = useRef<number>(0);
   const isAnimating = useRef(false);
 
   const goTo = (dir: 1 | -1) => {
     if (isAnimating.current) return;
     isAnimating.current = true;
     setIndex((prev) => {
-      const next = Math.max(0, Math.min(SLIDES.length - 1, prev + dir));
+      const next = (prev + dir + SLIDES.length) % SLIDES.length; // зациклено
       return next;
     });
     setTimeout(() => {
       isAnimating.current = false;
-    }, 400); // время анимации
+    }, 400); // синхронизируем с transition
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
+    touchDeltaY.current = 0;
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchMove = (e: React.TouchEvent) => {
     if (touchStartY.current === null) return;
-    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
-    if (Math.abs(deltaY) > 50) {
-      goTo(deltaY > 0 ? -1 : 1); // свайп вверх/вниз
+    touchDeltaY.current = e.touches[0].clientY - touchStartY.current;
+  };
+
+  const handleTouchEnd = () => {
+    if (Math.abs(touchDeltaY.current) > 50) {
+      goTo(touchDeltaY.current > 0 ? -1 : 1);
     }
     touchStartY.current = null;
+    touchDeltaY.current = 0;
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -62,6 +68,7 @@ export default function Home() {
       className="relative h-screen w-screen overflow-hidden bg-black text-white"
       onWheel={handleWheel}
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
       <div
