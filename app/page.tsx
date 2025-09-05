@@ -28,18 +28,26 @@ export default function Home() {
   const [likes, setLikes] = useState<Record<string, number>>({});
   const [comments, setComments] = useState<Record<string, number>>({});
 
-  // отслеживаем скролл (определяем текущую карточку)
+  // отслеживаем скролл (с паузой, чтобы не перескакивало несколько игр за раз)
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
+    let timeout: NodeJS.Timeout;
+
     const onScroll = () => {
-      const i = Math.round(el.scrollTop / window.innerHeight);
-      setIndex(i % GAMES.length);
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        const i = Math.round(el.scrollTop / window.innerHeight);
+        setIndex(i % GAMES.length);
+      }, 120); // ждём пока скролл остановится
     };
 
     el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      clearTimeout(timeout);
+    };
   }, []);
 
   const toggleLike = (id: string) => {
@@ -52,7 +60,6 @@ export default function Home() {
       className="h-screen overflow-y-scroll snap-y snap-mandatory scroll-smooth bg-black text-white"
     >
       {SLIDES.map((g, i) => {
-        // показываем только текущую, предыдущую и следующую игру
         const modIndex = i % GAMES.length;
         const isNear = Math.abs(modIndex - index) <= 1;
 
