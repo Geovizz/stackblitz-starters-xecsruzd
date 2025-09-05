@@ -19,27 +19,25 @@ const GAMES: Game[] = [
   },
 ];
 
+// сколько раз дублируем список игр
+const LOOP = 5;
+const LOOPED = Array.from({ length: LOOP }, () => GAMES).flat();
+
 export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const [likes, setLikes] = useState<Record<string, number>>({});
   const [comments, setComments] = useState<Record<string, number>>({});
 
-  // стартуем с ?game=id
+  // стартуем с центра ленты
   useEffect(() => {
-    const q = new URLSearchParams(window.location.search);
-    const id = q.get('game');
-    if (!id) return;
-    const initial = Math.max(
-      0,
-      GAMES.findIndex((g) => g.id === id)
-    );
-    if (initial >= 0 && containerRef.current) {
+    if (containerRef.current) {
+      const middle = Math.floor((LOOP * GAMES.length) / 2);
       containerRef.current.scrollTo({
-        top: initial * window.innerHeight,
+        top: middle * window.innerHeight,
         behavior: 'auto',
       });
-      setIndex(initial);
+      setIndex(0);
     }
   }, []);
 
@@ -47,10 +45,22 @@ export default function Home() {
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+
     const onScroll = () => {
       const i = Math.round(el.scrollTop / window.innerHeight);
-      setIndex(Math.max(0, Math.min(GAMES.length - 1, i)));
+      const modIndex = i % GAMES.length;
+      setIndex(modIndex);
+
+      // перескакиваем в середину, если слишком далеко
+      if (i < GAMES.length || i > LOOPED.length - GAMES.length) {
+        const middle = Math.floor((LOOP * GAMES.length) / 2) + modIndex;
+        el.scrollTo({
+          top: middle * window.innerHeight,
+          behavior: 'auto',
+        });
+      }
     };
+
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
@@ -77,10 +87,10 @@ export default function Home() {
       ref={containerRef}
       className="h-screen overflow-y-scroll snap-y snap-mandatory scroll-smooth bg-black text-white"
     >
-      {GAMES.map((g, i) => {
-        const isNear = Math.abs(i - index) <= 1;
+      {LOOPED.map((g, i) => {
+        const isNear = Math.abs(i % GAMES.length - index) <= 1;
         return (
-          <section key={g.id} className="relative h-screen snap-start">
+          <section key={i} className="relative h-screen snap-start">
             {isNear ? (
               <>
                 {/* Верхняя панель с иконкой, названием и описанием */}
