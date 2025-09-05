@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 type Game = { id: string; title: string; desc: string; url: string };
 
@@ -19,8 +19,8 @@ const GAMES: Game[] = [
   },
 ];
 
-// сколько раз дублируем список игр
-const LOOP = 5;
+// зацикливаем список искусственно
+const LOOP = 100;
 const LOOPED = Array.from({ length: LOOP }, () => GAMES).flat();
 
 export default function Home() {
@@ -29,54 +29,19 @@ export default function Home() {
   const [likes, setLikes] = useState<Record<string, number>>({});
   const [comments, setComments] = useState<Record<string, number>>({});
 
-  // стартуем с центра ленты
-  useEffect(() => {
-    if (containerRef.current) {
-      const middle = Math.floor((LOOP * GAMES.length) / 2);
-      containerRef.current.scrollTo({
-        top: middle * window.innerHeight,
-        behavior: 'auto',
-      });
-      setIndex(0);
-    }
-  }, []);
-
-  // отслеживаем скролл
+  // отслеживаем скролл (чисто для отображения текущего индекса)
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
     const onScroll = () => {
       const i = Math.round(el.scrollTop / window.innerHeight);
-      const modIndex = i % GAMES.length;
-      setIndex(modIndex);
-
-      // перескакиваем в середину, если слишком далеко
-      if (i < GAMES.length || i > LOOPED.length - GAMES.length) {
-        const middle = Math.floor((LOOP * GAMES.length) / 2) + modIndex;
-        el.scrollTo({
-          top: middle * window.innerHeight,
-          behavior: 'auto',
-        });
-      }
+      setIndex(i % GAMES.length);
     };
 
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
-
-  // лайки сохраняем в localStorage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('likes');
-      if (saved) setLikes(JSON.parse(saved));
-    } catch {}
-  }, []);
-  useEffect(() => {
-    try {
-      localStorage.setItem('likes', JSON.stringify(likes));
-    } catch {}
-  }, [likes]);
 
   const toggleLike = (id: string) => {
     setLikes((p) => ({ ...p, [id]: p[id] ? 0 : 1 }));
@@ -93,7 +58,7 @@ export default function Home() {
           <section key={i} className="relative h-screen snap-start">
             {isNear ? (
               <>
-                {/* Верхняя панель с иконкой, названием и описанием */}
+                {/* Верхняя панель */}
                 <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-3 bg-black/60 p-3">
                   <div className="h-10 w-10 rounded bg-gray-700 flex items-center justify-center text-xs">
                     ICON
@@ -112,7 +77,7 @@ export default function Home() {
                   allow="autoplay; fullscreen"
                 />
 
-                {/* Нижняя панель с кнопками */}
+                {/* Нижняя панель */}
                 <div className="absolute bottom-0 left-0 right-0 z-10 flex justify-around bg-black/80 py-2 text-center text-xs">
                   <button
                     onClick={() => toggleLike(g.id)}
@@ -133,9 +98,7 @@ export default function Home() {
                     onClick={() => {
                       const url = `${location.origin}${location.pathname}?game=${g.id}`;
                       if ((navigator as any).share) {
-                        (navigator as any)
-                          .share({ title: g.title, url })
-                          .catch(() => {});
+                        (navigator as any).share({ title: g.title, url }).catch(() => {});
                       } else {
                         navigator.clipboard?.writeText(url);
                         alert('Link copied!');
