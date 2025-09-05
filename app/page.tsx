@@ -29,7 +29,7 @@ export default function Home() {
   const [likes, setLikes] = useState<Record<string, number>>({});
   const [comments, setComments] = useState<Record<string, number>>({});
 
-  // отслеживаем скролл (чисто для отображения текущего индекса)
+  // отслеживаем скролл (определяем текущую карточку)
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -53,7 +53,10 @@ export default function Home() {
       className="h-screen overflow-y-scroll snap-y snap-mandatory scroll-smooth bg-black text-white"
     >
       {LOOPED.map((g, i) => {
-        const isNear = Math.abs(i % GAMES.length - index) <= 1;
+        // рендерим iframe только для текущей, предыдущей и следующей
+        const modIndex = i % GAMES.length;
+        const isNear = Math.abs(modIndex - index) <= 1;
+
         return (
           <section key={i} className="relative h-screen snap-start">
             {isNear ? (
@@ -98,7 +101,9 @@ export default function Home() {
                     onClick={() => {
                       const url = `${location.origin}${location.pathname}?game=${g.id}`;
                       if ((navigator as any).share) {
-                        (navigator as any).share({ title: g.title, url }).catch(() => {});
+                        (navigator as any)
+                          .share({ title: g.title, url })
+                          .catch(() => {});
                       } else {
                         navigator.clipboard?.writeText(url);
                         alert('Link copied!');
@@ -112,6 +117,7 @@ export default function Home() {
                 </div>
               </>
             ) : (
+              // Заглушка (placeholder)
               <div className="flex h-full w-full items-center justify-center">
                 <div className="h-32 w-32 rounded-xl bg-white/10 animate-pulse" />
               </div>
