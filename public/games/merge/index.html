@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Merge Rot Preview</title>
+  <style>
+    body { margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#87CEEB; }
+    canvas { background:#fff; border:3px solid #333; }
+    #hud {
+      position: absolute; top:10px; left:50%; transform:translateX(-50%);
+      font: 20px sans-serif; font-weight:bold; color:#222;
+    }
+    #end {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      font: 32px sans-serif; font-weight:bold; color:#fff; background:#000a; padding:20px; border-radius:10px;
+      display:none;
+    }
+  </style>
+</head>
+<body>
+<div id="hud">Score: 0 | Time: 30</div>
+<div id="end"></div>
+<canvas id="game" width="400" height="600"></canvas>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const hud = document.getElementById("hud");
+const endScreen = document.getElementById("end");
+
+const gravity = 0.3;
+const objects = [];
+const size = 40;
+
+const levels = ["🍕","🍝","🍅","🛵","🍦","🎭","🍷","🕴","👞","🏛️"];
+
+let score = 0;
+let time = 30;
+let gameOver = false;
+
+// drop a new object at x
+function dropObject(x) {
+  objects.push({ x, y:0, vx:0, vy:0, type:0 });
+}
+
+function update() {
+  if (gameOver) return;
+
+  // physics
+  for (let o of objects) {
+    o.vy += gravity;
+    o.y += o.vy;
+    if (o.y + size/2 > canvas.height) {
+      o.y = canvas.height - size/2;
+      o.vy = 0;
+    }
+  }
+
+  // merge check
+  for (let i=0; i<objects.length; i++) {
+    for (let j=i+1; j<objects.length; j++) {
+      let a=objects[i], b=objects[j];
+      let dx=a.x-b.x, dy=a.y-b.y;
+      if (Math.hypot(dx,dy)<size && a.type===b.type) {
+        if (a.type < levels.length-1) {
+          a.type++;
+          b.remove=true;
+          score += 10;
+        }
+      }
+    }
+  }
+  for (let i=objects.length-1; i>=0; i--) {
+    if (objects[i].remove) objects.splice(i,1);
+  }
+
+  hud.textContent = `Score: ${score} | Time: ${time}`;
+}
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for (let o of objects) {
+    ctx.font=size+"px serif";
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
+    ctx.fillText(levels[o.type], o.x, o.y);
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  if (!gameOver) requestAnimationFrame(loop);
+}
+loop();
+
+// timer countdown
+const timer = setInterval(()=>{
+  if (gameOver) { clearInterval(timer); return; }
+  time--;
+  if (time <= 0) {
+    finishGame(score>=500 ? "YOU WIN 🎉" : "YOU LOSE 😢");
+  }
+},1000);
+
+function finishGame(msg) {
+  gameOver = true;
+  endScreen.textContent = msg;
+  endScreen.style.display="block";
+}
+
+canvas.addEventListener("click", e=>{
+  if (gameOver) return;
+  const rect = canvas.getBoundingClientRect();
+  dropObject(e.clientX-rect.left);
+});
+</script>
+</body>
+</html>

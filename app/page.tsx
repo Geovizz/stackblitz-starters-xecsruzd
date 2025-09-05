@@ -7,6 +7,7 @@ type Game = { id: string; title: string; desc: string; url: string };
 const GAMES: Game[] = [
   { id: 'flappy', title: 'Flappy Block', desc: 'Arcade / Tap to fly', url: '/games/flappy/index.html' },
   { id: 'runner', title: 'Tiny Runner', desc: 'Endless runner challenge', url: '/games/runner/index.html' },
+  { id: 'merge', title: 'Merge Rot', desc: 'Merge Brain Rots', url: '/games/merge/index.html' },
 ];
 
 export default function Home() {
