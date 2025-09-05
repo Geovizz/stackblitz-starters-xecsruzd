@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 
 type Game = { id: string; title: string; desc: string; url: string };
 
@@ -23,114 +23,105 @@ const GAMES: Game[] = [
 const SLIDES = Array.from({ length: 10 }, (_, i) => GAMES[i % GAMES.length]);
 
 export default function Home() {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
-  const [likes, setLikes] = useState<Record<string, number>>({});
-  const [comments, setComments] = useState<Record<string, number>>({});
+  const touchStartY = useRef<number | null>(null);
+  const isAnimating = useRef(false);
 
-  // отслеживаем скролл (с паузой, чтобы не перескакивало несколько игр за раз)
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
+  const goTo = (dir: 1 | -1) => {
+    if (isAnimating.current) return;
+    isAnimating.current = true;
+    setIndex((prev) => {
+      const next = Math.max(0, Math.min(SLIDES.length - 1, prev + dir));
+      return next;
+    });
+    setTimeout(() => {
+      isAnimating.current = false;
+    }, 400); // время анимации
+  };
 
-    let timeout: NodeJS.Timeout;
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
 
-    const onScroll = () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        const i = Math.round(el.scrollTop / window.innerHeight);
-        setIndex(i % GAMES.length);
-      }, 120); // ждём пока скролл остановится
-    };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartY.current === null) return;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+    if (Math.abs(deltaY) > 50) {
+      goTo(deltaY > 0 ? -1 : 1); // свайп вверх/вниз
+    }
+    touchStartY.current = null;
+  };
 
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      el.removeEventListener('scroll', onScroll);
-      clearTimeout(timeout);
-    };
-  }, []);
-
-  const toggleLike = (id: string) => {
-    setLikes((p) => ({ ...p, [id]: p[id] ? 0 : 1 }));
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.deltaY > 50) goTo(1);
+    else if (e.deltaY < -50) goTo(-1);
   };
 
   return (
     <div
-      ref={containerRef}
-      className="h-screen overflow-y-scroll snap-y snap-mandatory scroll-smooth bg-black text-white"
+      className="relative h-screen w-screen overflow-hidden bg-black text-white"
+      onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
-      {SLIDES.map((g, i) => {
-        const modIndex = i % GAMES.length;
-        const isNear = Math.abs(modIndex - index) <= 1;
-
-        return (
-          <section key={i} className="relative h-screen snap-start">
-            {isNear ? (
-              <>
-                {/* Верхняя панель */}
-                <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-3 bg-black/60 p-3">
-                  <div className="h-10 w-10 rounded bg-gray-700 flex items-center justify-center text-xs">
-                    ICON
-                  </div>
-                  <div>
-                    <h1 className="text-sm font-semibold">{g.title}</h1>
-                    <p className="text-xs text-gray-300">{g.desc}</p>
-                  </div>
-                </div>
-
-                {/* Игра */}
-                <iframe
-                  src={g.url}
-                  title={g.title}
-                  className="w-full h-full block"
-                  allow="autoplay; fullscreen"
-                />
-
-                {/* Нижняя панель */}
-                <div className="absolute bottom-0 left-0 right-0 z-10 flex justify-around bg-black/80 py-2 text-center text-xs">
-                  <button
-                    onClick={() => toggleLike(g.id)}
-                    className="flex flex-col items-center"
-                  >
-                    <span className="text-lg">{likes[g.id] ? '❤️' : '🤍'}</span>
-                    <span>{likes[g.id] || 0}</span>
-                  </button>
-                  <button className="flex flex-col items-center">
-                    <span className="text-lg">💬</span>
-                    <span>{comments[g.id] || 0}</span>
-                  </button>
-                  <button className="flex flex-col items-center">
-                    <span className="text-lg">⭐</span>
-                    <span>0</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      const url = `${location.origin}${location.pathname}?game=${g.id}`;
-                      if ((navigator as any).share) {
-                        (navigator as any)
-                          .share({ title: g.title, url })
-                          .catch(() => {});
-                      } else {
-                        navigator.clipboard?.writeText(url);
-                        alert('Link copied!');
-                      }
-                    }}
-                    className="flex flex-col items-center"
-                  >
-                    <span className="text-lg">⤴</span>
-                    <span>Share</span>
-                  </button>
-                </div>
-              </>
-            ) : (
-              // Заглушка (placeholder)
-              <div className="flex h-full w-full items-center justify-center">
-                <div className="h-32 w-32 rounded-xl bg-white/10 animate-pulse" />
+      <div
+        className="h-full w-full transition-transform duration-500"
+        style={{ transform: `translateY(-${index * 100}vh)` }}
+      >
+        {SLIDES.map((g, i) => (
+          <section key={i} className="relative h-screen w-screen">
+            {/* Верхняя панель */}
+            <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-3 bg-black/60 p-3">
+              <div className="h-10 w-10 rounded bg-gray-700 flex items-center justify-center text-xs">
+                ICON
               </div>
-            )}
+              <div>
+                <h1 className="text-sm font-semibold">{g.title}</h1>
+                <p className="text-xs text-gray-300">{g.desc}</p>
+              </div>
+            </div>
+
+            {/* Игра */}
+            <iframe
+              src={g.url}
+              title={g.title}
+              className="w-full h-full block"
+              allow="autoplay; fullscreen"
+            />
+
+            {/* Нижняя панель */}
+            <div className="absolute bottom-0 left-0 right-0 z-10 flex justify-around bg-black/80 py-2 text-center text-xs">
+              <button className="flex flex-col items-center">
+                <span className="text-lg">❤️</span>
+                <span>0</span>
+              </button>
+              <button className="flex flex-col items-center">
+                <span className="text-lg">💬</span>
+                <span>0</span>
+              </button>
+              <button className="flex flex-col items-center">
+                <span className="text-lg">⭐</span>
+                <span>0</span>
+              </button>
+              <button
+                onClick={() => {
+                  const url = `${location.origin}${location.pathname}?game=${g.id}`;
+                  if ((navigator as any).share) {
+                    (navigator as any).share({ title: g.title, url }).catch(() => {});
+                  } else {
+                    navigator.clipboard?.writeText(url);
+                    alert('Link copied!');
+                  }
+                }}
+                className="flex flex-col items-center"
+              >
+                <span className="text-lg">⤴</span>
+                <span>Share</span>
+              </button>
+            </div>
           </section>
-        );
-      })}
+        ))}
+      </div>
     </div>
   );
 }
