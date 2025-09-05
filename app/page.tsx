@@ -19,9 +19,8 @@ const GAMES: Game[] = [
   },
 ];
 
-// зацикливаем список искусственно
-const LOOP = 100;
-const LOOPED = Array.from({ length: LOOP }, () => GAMES).flat();
+// делаем ровно 10 слайдов, игры повторяются циклически
+const SLIDES = Array.from({ length: 10 }, (_, i) => GAMES[i % GAMES.length]);
 
 export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,8 +51,8 @@ export default function Home() {
       ref={containerRef}
       className="h-screen overflow-y-scroll snap-y snap-mandatory scroll-smooth bg-black text-white"
     >
-      {LOOPED.map((g, i) => {
-        // рендерим iframe только для текущей, предыдущей и следующей
+      {SLIDES.map((g, i) => {
+        // показываем только текущую, предыдущую и следующую игру
         const modIndex = i % GAMES.length;
         const isNear = Math.abs(modIndex - index) <= 1;
 
