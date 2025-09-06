@@ -1,0 +1,49 @@
+.playza-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    font-family: system-ui, sans-serif;
+    z-index: 9999;
+    visibility: hidden;
+  }
+  
+  .playza-window {
+    background: #1f1f1f;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    width: 300px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  }
+  
+  .playza-window h1 {
+    font-size: 24px;
+    margin-bottom: 15px;
+  }
+  
+  .playza-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .playza-buttons button {
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    background: #6d28d9;
+    color: white;
+    font-size: 16px;
+  }
+  
+  .playza-buttons button:hover {
+    background: #8b5cf6;
+  }
+  
