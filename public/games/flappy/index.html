@@ -21,13 +21,67 @@
         height: 100vh;
         background: #222;
       }
+      #gameover,
+      #start {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        font-size: 32px;
+      }
+      #gameover {
+        background: rgba(0, 0, 0, 0.8);
+        visibility: hidden;
+      }
+      #gameover button {
+        margin-top: 20px;
+        padding: 10px 20px;
+        font-size: 18px;
+        font-weight: bold;
+        background: #6d28d9;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      #gameover button:hover {
+        background: #8b5cf6;
+      }
+      #start {
+        background: rgba(0, 0, 0, 0.6);
+        visibility: visible;
+      }
     </style>
   </head>
   <body>
     <canvas id="c"></canvas>
+
+    <!-- Стартовый экран -->
+    <div id="start">Tap to start</div>
+
+    <!-- Game Over экран -->
+    <div id="gameover">
+      <div>Game Over</div>
+      <button id="continue">Continue</button>
+    </div>
+
+    <!-- SDK -->
+    <script src="/playza-sdk.js"></script>
+
     <script>
       const canvas = document.getElementById('c');
       const ctx = canvas.getContext('2d');
+      const startEl = document.getElementById('start');
+      const gameoverEl = document.getElementById('gameover');
+      const continueBtn = document.getElementById('continue');
+
       function resize() {
         canvas.width = innerWidth;
         canvas.height = innerHeight;
@@ -35,23 +89,29 @@
       addEventListener('resize', resize);
       resize();
 
-      let bird,
-        pipes,
-        t,
-        running,
-        score,
-        best = 0;
+      let bird, pipes, t, score, best;
+      let running = false;
+      let started = false;
+
       function reset() {
         bird = { x: canvas.width * 0.3, y: canvas.height * 0.5, v: 0 };
         pipes = [];
         t = 0;
         score = 0;
-        running = true;
+        running = false;
+        started = false;
+        startEl.style.visibility = 'visible';
+        gameoverEl.style.visibility = 'hidden';
       }
       reset();
 
       function tap() {
-        bird.v = -8;
+        if (!started) {
+          started = true;
+          running = true;
+          startEl.style.visibility = 'hidden';
+        }
+        if (running) bird.v = -8;
       }
       addEventListener('pointerdown', tap);
       addEventListener('keydown', (e) => {
@@ -87,6 +147,7 @@
 
           // коллизии
           if (
+            running &&
             bird.x > p.x - 20 &&
             bird.x < p.x + 60 &&
             (bird.y < p.top || bird.y > p.top + p.gap)
@@ -103,31 +164,39 @@
         ctx.fill();
 
         // границы
-        if (bird.y > canvas.height - 10 || bird.y < 10) running = false;
+        if (running && (bird.y > canvas.height - 10 || bird.y < 10)) {
+          running = false;
+        }
 
         ctx.fillStyle = '#fff';
         ctx.font = '20px system-ui';
         ctx.fillText('Score: ' + score, 12, 28);
 
-        if (!running) {
+        if (!running && started) {
+          if (best === undefined) best = 0;
           best = Math.max(best, score);
-          ctx.fillText('Game Over — tap to retry', 12, 54);
-          // сообщение наверх (на будущее)
+
+          // показываем меню
+          gameoverEl.style.visibility = 'visible';
+
+          // событие SDK
           try {
-            parent.postMessage({ type: 'gameover', id: 'flappy', score }, '*');
+            PlayzaSDK.gameOver();
           } catch (e) {}
-          addEventListener(
-            'pointerdown',
-            () => {
-              reset();
-            },
-            { once: true }
-          );
+
+          started = false;
         }
 
         requestAnimationFrame(frame);
       }
       frame();
+
+      continueBtn.addEventListener('click', () => {
+        try {
+          PlayzaSDK.restart();
+        } catch (e) {}
+        reset();
+      });
     </script>
   </body>
 </html>

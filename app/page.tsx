@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-type Game = { id: string; title: string; desc: string; url: string };
+type Game = { id: string; title: string; desc: string; url: string; icon?: string; rating?: number };
 
 const GAMES: Game[] = [
-  { id: 'flappy', title: 'Flappy Block', desc: 'Arcade / Tap to fly', url: '/games/flappy/index.html' },
-  { id: 'runner', title: 'Tiny Runner', desc: 'Endless runner challenge', url: '/games/runner/index.html' },
-  { id: 'merge', title: 'Merge Rot', desc: 'Merge Brain Rots', url: '/games/merge/index.html' },
+  { id: 'flappy', title: 'Flappy Block', desc: 'Arcade / Tap to fly', url: '/games/flappy/index.html', icon: '/icons/flappy.png', rating: 4.2 },
+  { id: 'runner', title: 'Tiny Runner', desc: 'Endless runner challenge', url: '/games/runner/index.html', icon: '/icons/runner.png', rating: 4.0 },
+  { id: 'merge', title: 'Merge Rot', desc: 'Merge Brain Rots', url: '/games/merge/index.html', icon: '/icons/merge.png', rating: 4.5 },
 ];
 
 export default function Home() {
@@ -15,21 +15,6 @@ export default function Home() {
   const [index, setIndex] = useState(0);
   const [likes, setLikes] = useState<Record<string, number>>({});
   const [comments, setComments] = useState<Record<string, number>>({});
-
-  // стартуем с ?game=id
-  useEffect(() => {
-    const q = new URLSearchParams(window.location.search);
-    const id = q.get('game');
-    if (!id) return;
-    const initial = Math.max(0, GAMES.findIndex((g) => g.id === id));
-    if (initial >= 0 && containerRef.current) {
-      containerRef.current.scrollTo({
-        top: initial * window.innerHeight,
-        behavior: 'auto',
-      });
-      setIndex(initial);
-    }
-  }, []);
 
   // отслеживаем скролл
   useEffect(() => {
@@ -43,66 +28,55 @@ export default function Home() {
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
-  // лайки сохраняем в localStorage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('likes');
-      if (saved) setLikes(JSON.parse(saved));
-    } catch {}
-  }, []);
-  useEffect(() => {
-    try {
-      localStorage.setItem('likes', JSON.stringify(likes));
-    } catch {}
-  }, [likes]);
-
   const toggleLike = (id: string) => {
     setLikes((p) => ({ ...p, [id]: p[id] ? 0 : 1 }));
   };
 
   return (
-    <div
-      ref={containerRef}
-      className="h-screen overflow-y-scroll snap-y snap-mandatory scroll-smooth bg-black text-white"
-    >
+    <div ref={containerRef} className="h-screen overflow-y-scroll snap-y snap-mandatory scroll-smooth bg-black text-white">
       {GAMES.map((g, i) => {
         const isNear = Math.abs(i - index) <= 1;
         return (
-          <section key={g.id} className="relative h-screen snap-start">
+          <section key={g.id} className="relative h-screen snap-start bg-gray-200">
             {isNear ? (
               <>
-                {/* Верхняя панель с иконкой, названием и описанием */}
-                <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-3 bg-black/60 p-3">
-                  <div className="h-10 w-10 rounded bg-gray-700 flex items-center justify-center text-xs">
-                    ICON
-                  </div>
-                  <div>
-                    <h1 className="text-sm font-semibold">{g.title}</h1>
-                    <p className="text-xs text-gray-300">{g.desc}</p>
-                  </div>
+                {/* Верхний баннер */}
+                <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-center bg-gray-400 h-12 text-black font-semibold">
+                  AD BANNER
+                </div>
+
+                {/* Лого Playza */}
+                <div className="absolute top-14 left-2 z-10">
+                  <span className="flex items-center gap-1 rounded-full bg-purple-500 px-3 py-1 text-sm font-semibold">
+                    <span>😅</span> Playza
+                  </span>
                 </div>
 
                 {/* Игра */}
-                <iframe
-                  src={g.url}
-                  title={g.title}
-                  className="w-full h-full block"
-                  allow="autoplay; fullscreen"
-                />
+                <iframe src={g.url} title={g.title} className="w-full h-full block" allow="autoplay; fullscreen" />
 
-                {/* Нижняя панель с кнопками */}
-                <div className="absolute bottom-0 left-0 right-0 z-10 flex justify-around bg-black/80 py-2 text-center text-xs">
+                {/* Инфо о игре (снизу поверх игры) */}
+                <div className="absolute bottom-14 left-2 flex items-center gap-2 bg-black/40 px-3 py-2 rounded-md">
+                  <img src={g.icon || '/icons/default.png'} alt="icon" className="h-10 w-10 rounded-md" />
+                  <div>
+                    <h1 className="text-white font-semibold">{g.title}</h1>
+                    <p className="text-gray-200 text-xs">{g.desc}</p>
+                  </div>
+                </div>
+
+                {/* Нижняя фиолетовая панель */}
+                <div className="absolute bottom-0 left-0 right-0 z-10 flex justify-around bg-purple-600 py-2 text-center text-xs">
                   <button onClick={() => toggleLike(g.id)} className="flex flex-col items-center">
                     <span className="text-lg">{likes[g.id] ? '❤️' : '🤍'}</span>
-                    <span>{likes[g.id] || 0}</span>
+                    <span>{likes[g.id] || 23}</span>
                   </button>
                   <button className="flex flex-col items-center">
                     <span className="text-lg">💬</span>
-                    <span>{comments[g.id] || 0}</span>
+                    <span>{comments[g.id] || 5}</span>
                   </button>
                   <button className="flex flex-col items-center">
                     <span className="text-lg">⭐</span>
-                    <span>0</span>
+                    <span>{g.rating || 0}</span>
                   </button>
                   <button
                     onClick={() => {
