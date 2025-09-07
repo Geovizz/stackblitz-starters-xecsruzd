@@ -8,6 +8,7 @@ const GAMES: Game[] = [
   { id: 'flappy', title: 'Flappy Block', desc: 'Arcade / Tap to fly', url: '/games/flappy/index.html', icon: '/icons/flappy.png', rating: 4.2 },
   { id: 'runner', title: 'Tiny Runner', desc: 'Endless runner challenge', url: '/games/runner/index.html', icon: '/icons/runner.png', rating: 4.0 },
   { id: 'merge',  title: 'Merge Rot',    desc: 'Merge Brain Rots',      url: '/games/merge/index.html',  icon: '/icons/merge.png',  rating: 4.5 },
+  { id: 'parkour',  title: 'Rainbow Parkour', desc: 'Rainbow Parkour',  url: '/games/parkour/index.html',  icon: '/icons/merge.png',  rating: 4.5 },
 ];
 
 export default function Home() {
@@ -15,8 +16,9 @@ export default function Home() {
   const [index, setIndex] = useState(0);
   const [likes, setLikes] = useState<Record<string, number>>({});
   const [comments, setComments] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
 
-  // «замок» на один слайд
+  // Snap-to-section scroll
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -29,33 +31,27 @@ export default function Home() {
       const raw = el.scrollTop / window.innerHeight;
       let target = Math.round(raw);
 
-      // ограничиваем шаг максимум до ±1 от текущего индекса
       if (target > index + 1) target = index + 1;
       if (target < index - 1) target = index - 1;
 
-      // границы
       target = Math.max(0, Math.min(GAMES.length - 1, target));
 
       if (target !== index) {
         snapping = true;
         setIndex(target);
         el.scrollTo({ top: target * window.innerHeight, behavior: 'smooth' });
-        // даём инерции закончиться
         window.setTimeout(() => { snapping = false; }, 350);
       } else {
-        // обновим индекс на случай «чуть-чуть недоскроллил»
         setIndex(target);
       }
     };
 
     const onScroll = () => {
       if (snapTimer) window.clearTimeout(snapTimer);
-      // ждём, пока пользователь отпустит палец/колесо
       snapTimer = window.setTimeout(clampToOne, 90);
     };
 
     el.addEventListener('scroll', onScroll, { passive: true });
-    // при изменении размера экрана пересчитаем позицию
     const onResize = () => el.scrollTo({ top: index * window.innerHeight });
     window.addEventListener('resize', onResize);
 
@@ -79,30 +75,46 @@ export default function Home() {
       "
     >
       {GAMES.map((g, i) => {
-        const isNear = Math.abs(i - index) <= 1;
+        const isActive = i === index;
+        const isLoading = loading[g.id] ?? true;
+
         return (
           <section
             key={g.id}
             className="relative h-screen snap-start snap-always bg-gray-200"
           >
-            {isNear ? (
+            {isActive ? (
               <>
-                {/* Верхний баннер */}
+                {/* Top banner */}
                 <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-center bg-gray-400 h-12 text-black font-semibold">
                   AD BANNER
                 </div>
 
-                {/* Лого Playza */}
+                {/* Logo */}
                 <div className="absolute top-14 left-2 z-10">
                   <span className="flex items-center gap-1 rounded-full bg-purple-500 px-3 py-1 text-sm font-semibold">
                     <span>😅</span> Playza
                   </span>
                 </div>
 
-                {/* Игра */}
-                <iframe src={g.url} title={g.title} className="w-full h-full block" allow="autoplay; fullscreen" />
+                {/* Loader */}
+                {isLoading && (
+                  <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40">
+                    <div className="h-16 w-16 rounded-full border-4 border-purple-400 border-t-transparent animate-spin" />
+                  </div>
+                )}
 
-                {/* Инфо об игре */}
+                {/* Game iframe */}
+                <iframe
+                  key={g.id}
+                  src={g.url}
+                  title={g.title}
+                  className="w-full h-full block"
+                  allow="autoplay; fullscreen"
+                  onLoad={() => setLoading(p => ({ ...p, [g.id]: false }))}
+                />
+
+                {/* Game info */}
                 <div className="absolute bottom-14 left-2 flex items-center gap-2 bg-black/40 px-3 py-2 rounded-md">
                   <img src={g.icon || '/icons/default.png'} alt="icon" className="h-10 w-10 rounded-md" />
                   <div>
@@ -111,7 +123,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Нижняя панель */}
+                {/* Bottom panel */}
                 <div className="absolute bottom-0 left-0 right-0 z-10 flex justify-around bg-purple-600 py-2 text-center text-xs">
                   <button onClick={() => toggleLike(g.id)} className="flex flex-col items-center">
                     <span className="text-lg">{likes[g.id] ? '❤️' : '🤍'}</span>

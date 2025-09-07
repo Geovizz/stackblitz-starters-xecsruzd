@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Playza – Rainbow Parkour</title>
+  <style>
+    html, body { height: 100%; margin: 0; overflow: hidden; background: linear-gradient(180deg,#0f1020,#141a33 40%, #0b0f1a 100%); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    #hud { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; align-items: center; gap: 12px; z-index: 5; }
+    .pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); color: #e8ecff; padding: 8px 12px; border-radius: 999px; backdrop-filter: blur(6px); font-size: 14px; }
+    .spacer { flex: 1 1 auto; }
+    button { appearance: none; border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 600; cursor: pointer; background: #6ee7ff; color: #002233; box-shadow: 0 6px 16px rgba(110,231,255,.25); transition: transform .06s ease; }
+    button:active { transform: translateY(1px) scale(.99); }
+    #centerMsg { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 6; }
+    #centerMsg .card { min-width: 320px; max-width: 90vw; text-align: center; background: rgba(10,12,22,.8); border: 1px solid rgba(255,255,255,.12); color: #e8ecff; padding: 22px 18px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,.45); pointer-events: auto; }
+    #centerMsg h1 { margin: 0 0 8px; font-size: 22px; }
+    #centerMsg p { margin: 4px 0 14px; opacity: .85; }
+    #mobileControls { position: fixed; bottom: 14px; left: 14px; right: 14px; display: none; justify-content: space-between; z-index: 5; }
+    .btn { width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); color: #e8ecff; display: grid; place-items: center; font-size: 20px; user-select: none; }
+    @media (hover: none) and (pointer: coarse) { #mobileControls { display: flex; } }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div class="pill" id="timer">Time: 0.00s</div>
+    <div class="pill" id="best">Best: –</div>
+    <div class="pill" id="level">Level 1 / 20</div>
+    <div class="spacer"></div>
+    <button id="restartBtn" title="Restart run (R)">Restart</button>
+    <button id="muteBtn" title="Mute (M)">Mute</button>
+  </div>
+
+  <div id="centerMsg" style="display:none">
+    <div class="card">
+      <h1 id="msgTitle">You Win! 🎉</h1>
+      <p id="msgBody">Finish time: <b>00.00s</b></p>
+      <button id="playAgain">Play again</button>
+    </div>
+  </div>
+
+  <div id="mobileControls">
+    <div class="btn" data-key="Space">⤒ Jump</div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js';
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(new THREE.Color(0x0e1222), 30, 180);
+
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 500);
+    camera.position.set(0, 3.6, 6.5);
+
+    // --- Smooth camera follow ---
+    const cameraOffset = new THREE.Vector3(0, 3, 6); // behind & above
+    const cameraTarget = new THREE.Vector3();
+    function updateCamera(dt) {
+      cameraTarget.copy(state.pos).add(new THREE.Vector3(0, 1, 0));
+      const desired = cameraTarget.clone().add(cameraOffset);
+      camera.position.lerp(desired, 1 - Math.pow(0.001, dt)); // smoothing
+      camera.lookAt(cameraTarget);
+    }
+
+    const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+    dir.position.set(2, 6, 3);
+    scene.add(dir);
+    scene.add(new THREE.AmbientLight(0xbfd8ff, 0.45));
+
+    const colors = [0xff0055, 0xff7b00, 0xffe600, 0x57ff00, 0x00d8ff, 0x8a5cff];
+    const matPool = colors.map(c => new THREE.MeshStandardMaterial({ color: c, roughness: .6, metalness: .05 }));
+    const matCheckpoint = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x66ccff, emissiveIntensity: 0.35, roughness:.4 });
+    const matGoal = new THREE.MeshStandardMaterial({ color: 0xfff3a3, emissive: 0x7a5b00, emissiveIntensity:.5, metalness:.6, roughness:.3 });
+    const matPlayer = new THREE.MeshStandardMaterial({ color: 0x9ad1ff, roughness: .5 });
+
+    const baseGeo = new THREE.BoxGeometry(80, 1, 80);
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x0c1020, roughness:1 });
+    const base = new THREE.Mesh(baseGeo, baseMat);
+    base.position.y = -30;
+    scene.add(base);
+
+    const PLAYER_HALF_HEIGHT = 0.9;
+    const playerGeo = new THREE.BoxGeometry(1, PLAYER_HALF_HEIGHT*2, 1);
+    const player = new THREE.Mesh(playerGeo, matPlayer);
+    scene.add(player);
+
+    const state = {
+      pos: new THREE.Vector3(0, 3, -2),
+      vel: new THREE.Vector3(0, 0, 0),
+      grounded: false,
+      speed: 6,
+      jumpStrength: 7.5,
+      gravity: -18,
+      runStartedAt: null,
+      started: false,
+      finished: false,
+      checkpoint: new THREE.Vector3(0, 3, -2),
+      currentLevelIndex: 0,
+      muted: false,
+    };
+
+    // --- Audio ---
+    const Audio = {
+      ctx: null,
+      init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+      beep(freq=880, dur=0.08, type='sine', gain=0.03) {
+        if (state.muted) return; this.init();
+        const ctx = this.ctx; const o = ctx.createOscillator(); const g = ctx.createGain();
+        o.type = type; o.frequency.value = freq; g.gain.value = gain; o.connect(g); g.connect(ctx.destination);
+        const t = ctx.currentTime; o.start(t); o.stop(t + dur);
+      },
+      chord() { this.beep(523, .09, 'square', .035); setTimeout(()=>this.beep(659,.09,'square',.035), 60); setTimeout(()=>this.beep(784,.14,'square',.035), 120); }
+    };
+
+    // --- Input ---
+    const keys = new Set();
+    const keyMap = { 'Space':'jump' };
+    window.addEventListener('keydown', e => { if (keyMap[e.code]) { keys.add(keyMap[e.code]); e.preventDefault(); } });
+    window.addEventListener('keyup', e => { if (keyMap[e.code]) keys.delete(keyMap[e.code]); });
+    document.querySelector('[data-key="Space"]').addEventListener('touchstart', e => { e.preventDefault(); keys.add('jump'); });
+    renderer.domElement.addEventListener('touchstart', () => keys.add('jump'));
+
+    // --- Platforms ---
+    const platforms = [];
+    const tmpBox = new THREE.Box3();
+    function addPlatform({ x,y,z,w=3,h=0.5,d=3,colorIndex=0,checkpoint=false,goal=false }) {
+      const geo = new THREE.BoxGeometry(w,h,d);
+      const mat = goal ? matGoal : (checkpoint ? matCheckpoint : matPool[colorIndex % matPool.length]);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(x,y,z);
+      scene.add(mesh);
+      const box = new THREE.Box3().setFromObject(mesh);
+      platforms.push({ mesh, box, isCheckpoint:checkpoint, isGoal:goal, w,d,h });
+      return mesh;
+    }
+
+    const LEVEL_COUNT = 20;
+    let cursor = new THREE.Vector3(0,0,-2);
+    for (let i=0;i<LEVEL_COUNT;i++){
+      const w=3,d=4,gap=2+Math.min(i*0.15,2.0);
+      cursor.z -= (d+gap);
+      const y=0;
+      const checkpoint=(i>0&&i%5===0);
+      const goal=(i===LEVEL_COUNT-1);
+      addPlatform({ x:cursor.x,y,z:cursor.z,w,d,colorIndex:i,checkpoint,goal });
+    }
+
+    // --- UI ---
+    const $timer=document.getElementById('timer');
+    const $best=document.getElementById('best');
+    const $level=document.getElementById('level');
+    const $restart=document.getElementById('restartBtn');
+    const $mute=document.getElementById('muteBtn');
+    const $center=document.getElementById('centerMsg');
+    const $msgTitle=document.getElementById('msgTitle');
+    const $msgBody=document.getElementById('msgBody');
+    const $again=document.getElementById('playAgain');
+
+    const BEST_KEY='playzaRainbowObbyBest';
+    let best=parseFloat(localStorage.getItem(BEST_KEY)||'NaN');
+    function updateBestLabel(){ $best.textContent=isFinite(best)?`Best: ${best.toFixed(2)}s`:'Best: –'; }
+    updateBestLabel();
+
+    $restart.onclick=()=>restartRun();
+    $again.onclick=()=>{ hideCenter(); restartRun(); };
+    $mute.onclick=()=>{ state.muted=!state.muted; $mute.textContent=state.muted?'Unmute':'Mute'; };
+
+    function showCenter(title,body,win=false){ $msgTitle.textContent=title; $msgBody.innerHTML=body; $center.style.display='grid'; if(win) Audio.chord(); }
+    function hideCenter(){ $center.style.display='none'; }
+
+    function restartRun(){
+      const first=platforms[0]; const top=first.box.max.y;
+      state.pos.set(first.mesh.position.x, top+PLAYER_HALF_HEIGHT+2, first.mesh.position.z);
+      state.checkpoint.copy(state.pos); player.position.copy(state.pos);
+      state.vel.set(0,0,0);
+      state.grounded=false; state.currentLevelIndex=0;
+      state.runStartedAt=null; state.started=false;
+      state.finished=false; hideCenter();
+      camera.position.set(0,3.6,6.5);
+    }
+
+    function step(dt){
+      if (state.started) {
+        const fwd = new THREE.Vector3();
+        camera.getWorldDirection(fwd);
+        fwd.y = 0;
+        fwd.normalize();
+        const accel = state.speed * (state.grounded ? 1.0 : 0.7);
+        state.pos.x += fwd.x * accel * dt;
+        state.pos.z += fwd.z * accel * dt;
+      }
+
+      state.vel.y += state.gravity * dt;
+      state.vel.y = Math.max(state.vel.y, -40);
+
+      if (keys.has('jump') && state.grounded) {
+        if (!state.started) {
+          state.started = true;
+          state.runStartedAt = performance.now();
+        }
+        state.vel.y = state.jumpStrength;
+        state.grounded = false;
+        keys.delete('jump');
+        Audio.beep(1100, .06, 'triangle', .035);
+      }
+
+      state.pos.y += state.vel.y * dt;
+
+      let landed = false;
+      for (let i=0; i<platforms.length; i++){
+        const p = platforms[i];
+        p.box.setFromObject(p.mesh);
+        const withinX = state.pos.x > p.box.min.x - 0.5 && state.pos.x < p.box.max.x + 0.5;
+        const withinZ = state.pos.z > p.box.min.z - 0.5 && state.pos.z < p.box.max.z + 0.5;
+        if (!withinX || !withinZ) continue;
+        const top = p.box.max.y;
+        const prevY = state.pos.y - state.vel.y * dt;
+        const feetPrev = prevY - PLAYER_HALF_HEIGHT;
+        const feetNow = state.pos.y - PLAYER_HALF_HEIGHT;
+        if (feetPrev >= top && feetNow <= top) {
+          state.pos.y = top + PLAYER_HALF_HEIGHT + 0.001;
+          state.vel.y = 0;
+          state.grounded = true;
+          landed = true;
+          if (p.isGoal && !state.finished) finishRun();
+          break;
+        }
+      }
+      if (!landed) state.grounded = false;
+      if (state.pos.y < -25 && !state.finished) {
+        state.pos.copy(state.checkpoint); state.vel.set(0,0,0); state.grounded=false;
+      }
+      player.position.copy(state.pos);
+    }
+
+    function finishRun(){
+      state.finished=true; const t=getRunTime();
+      if(!isFinite(best)||t<best){ best=t; localStorage.setItem(BEST_KEY,String(best)); updateBestLabel(); }
+      showCenter('You Win! 🎉',`Finish time: <b>${t.toFixed(2)}s</b><br/>Best: <b>${best.toFixed(2)}s</b>`,true);
+    }
+
+    function getRunTime(){ if(!state.runStartedAt) return 0; return (performance.now()-state.runStartedAt)/1000; }
+
+    let last=performance.now();
+    function loop(now){
+      const dt=Math.min(0.033,(now-last)/1000); last=now;
+      if(!state.finished) step(dt);
+      updateCamera(dt);
+      renderer.render(scene,camera);
+      $timer.textContent=`Time: ${getRunTime().toFixed(2)}s`;
+      requestAnimationFrame(loop);
+    }
+
+    function init(){
+      restartRun();
+      showCenter('Rainbow Parkour – Playza','Tap to jump • First tap starts the run',false);
+      setTimeout(()=>hideCenter(),2000);
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('resize',()=>{
+      camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth,window.innerHeight);
+    });
+
+    init();
+  </script>
+</body>
+</html>
